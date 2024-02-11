@@ -78,6 +78,11 @@ class MainActivity : ComponentActivity() {
                             },
                             onDelete = {
                                 coroutineScope.launch {
+                                    if(connectedGroupInfo == null) {
+                                        localConnector.disconnectAsHost()
+                                        localConnector.disconnectAsClient()
+                                        return@launch
+                                    }
                                     if(connectedGroupInfo?.isGroupOwner == true)
                                         localConnector.disconnectAsHost()
                                     else

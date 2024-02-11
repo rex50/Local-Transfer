@@ -54,6 +54,7 @@ class WifiP2pLocalConnector : LocalConnector {
     private val wifiReceiver: BroadcastReceiver = object : BroadcastReceiver() {
 
         override fun onReceive(context: Context?, intent: Intent?) {
+            Log.d(TAG, "onReceive: ${intent?.action}")
             when (intent?.action) {
 
                 WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION -> {
@@ -169,9 +170,9 @@ class WifiP2pLocalConnector : LocalConnector {
 
     override suspend fun disconnectAsClient() {
         wifiChannel?.let {
-            val hostResult = wifiP2pManager?.removeGroupSuspend(it)
+            val hostResult = wifiP2pManager?.cancelConnectionSuspend(it)
             if(hostResult == WifiActionResult.Success) {
-                _connectionState.emit(LocalConnectionState.NoConnection)
+                _connectionState.emit(LocalConnectionState.Ready)
             } else {
                 _connectionState.emit(LocalConnectionState.Error(IllegalStateException("Problem while disconnecting as client")))
             }
@@ -182,7 +183,7 @@ class WifiP2pLocalConnector : LocalConnector {
         wifiChannel?.let {
             val hostResult = wifiP2pManager?.removeGroupSuspend(it)
             if(hostResult == WifiActionResult.Success) {
-                _connectionState.emit(LocalConnectionState.NoConnection)
+                _connectionState.emit(LocalConnectionState.Ready)
             } else {
                 _connectionState.emit(LocalConnectionState.Error(IllegalStateException("Problem while disconnecting as host")))
             }
@@ -229,17 +230,15 @@ class WifiP2pLocalConnector : LocalConnector {
             TAG,
             "checkWifiConnection: Connection group address: ${connectionNew?.groupOwnerAddress}, is group owner: ${connectionNew?.isGroupOwner}"
         )
-        if (connectionNew != connectionOld) {
-            if(connectionNew == null)
-                _connectionState.emit(LocalConnectionState.NoConnection)
-            else {
-                val connectionInfo = LocalConnectionState.ConnectedGroupInfo(
-                    isGroupOwner = connectionNew.isGroupOwner,
-                    groupOwnerAddress = connectionNew.groupOwnerAddress
-                )
-                wifiP2PConnection = connectionInfo
-                _connectionState.emit(connectionInfo)
-            }
+        if(connectionNew == null)
+            _connectionState.emit(LocalConnectionState.NoConnection)
+        else if (connectionNew != connectionOld) {
+            val connectionInfo = LocalConnectionState.ConnectedGroupInfo(
+                isGroupOwner = connectionNew.isGroupOwner,
+                groupOwnerAddress = connectionNew.groupOwnerAddress
+            )
+            wifiP2PConnection = connectionInfo
+            _connectionState.emit(connectionInfo)
         }
         return connectionNew
     }
